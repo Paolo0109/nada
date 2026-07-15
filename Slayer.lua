@@ -1,924 +1,384 @@
 -- ============================================================================
--- 🩸 KILLER HUB UNIVERSAL FRAMEWORK | MASTER EXPERT REFACTORED (V3.3)
--- 🚀 Ultra Optimizado | Corrección de Persistencia y Pérdida de Memoria
+-- 🔮 KILLER HUB - MÓDULO EXCLUSIVO MMV (EDICIÓN PROTECCIÓN & ANTI-LAG)
 -- ============================================================================
 
--- 💾 CONFIGURACIÓN DE PROYECTO 
-local PROJECT_NAME = "Universal" 
+-- 1. CARGAR TU LIBRERÍA EXTERNA
+local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub1/refs/heads/main/MM2.lua"))()
 
--- 🔒 Envoltura de seguridad para servicios (Bypass Anti-Cheat)
-local function getService(serviceName)
-    return (cloneref and cloneref(game:GetService(serviceName))) or game:GetService(serviceName)
-end
+-- 2. CREAR PESTAÑA EXCLUSIVA MMV
+local MMVTab = KillerHub:CreateTab("MMV 💣", "rbxassetid://10747373142")
 
-local Players = getService("Players")
-local CoreGui = getService("CoreGui")
-local UserInputService = getService("UserInputService")
-local HttpService = getService("HttpService")
-local Debris = getService("Debris")
-local SoundService = getService("SoundService")
-local Workspace = getService("Workspace")
-local TweenService = getService("TweenService")
-
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
-local TargetParent = (gethui and gethui()) or (pcall(function() return CoreGui.Name end) and CoreGui) or LocalPlayer:WaitForChild("PlayerGui")
 
-if TargetParent:FindFirstChild("KillerHub_Universal") then
-    TargetParent.KillerHub_Universal:Destroy()
-end
+-- 📊 CONFIGURACIÓN GLOBAL DE JUMP POWER
+local POTENCIA_SALTO = 55
 
--- ============================================================================
--- 🎨 PALETAS DE COLORES
--- ============================================================================
-local Themes = {
-    ["Void Premium"] = {
-        BG_MAIN = Color3.fromRGB(8, 5, 12),
-        BG_SIDEBAR = Color3.fromRGB(11, 8, 16),
-        BG_SECONDARY = Color3.fromRGB(15, 11, 22),
-        ACCENT = Color3.fromRGB(138, 43, 226),
-        TEXT_WHITE = Color3.fromRGB(245, 240, 255),
-        TEXT_MUTED = Color3.fromRGB(130, 115, 145),
-        BORDER = Color3.fromRGB(40, 20, 65)
-    },
-    ["Crimson Dark"] = {
-        BG_MAIN = Color3.fromRGB(11, 11, 13),
-        BG_SIDEBAR = Color3.fromRGB(14, 14, 16),
-        BG_SECONDARY = Color3.fromRGB(18, 18, 22),
-        ACCENT = Color3.fromRGB(235, 35, 35),
-        TEXT_WHITE = Color3.fromRGB(245, 245, 245),
-        TEXT_MUTED = Color3.fromRGB(140, 130, 130),
-        BORDER = Color3.fromRGB(38, 28, 28)
-    },
-    ["Classic Dark"] = {
-        BG_MAIN = Color3.fromRGB(15, 15, 15),
-        BG_SIDEBAR = Color3.fromRGB(20, 20, 20),
-        BG_SECONDARY = Color3.fromRGB(25, 25, 25),
-        ACCENT = Color3.fromRGB(245, 245, 245),
-        TEXT_WHITE = Color3.fromRGB(245, 245, 245),
-        TEXT_MUTED = Color3.fromRGB(130, 130, 130),
-        BORDER = Color3.fromRGB(40, 40, 40)
-    },
-    ["Blood"] = {
-        BG_MAIN = Color3.fromRGB(12, 12, 12),       
-        BG_SIDEBAR = Color3.fromRGB(15, 13, 13),    
-        BG_SECONDARY = Color3.fromRGB(20, 16, 16),  
-        ACCENT = Color3.fromRGB(185, 0, 0),         
-        TEXT_WHITE = Color3.fromRGB(250, 245, 245), 
-        TEXT_MUTED = Color3.fromRGB(140, 115, 115), 
-        BORDER = Color3.fromRGB(50, 20, 20)         
-    }
-}
+-- 📊 VARIABLES DE CONTROL INTERNO (DIAMOND)
+local CooldownBomba = 5.5
+local EnEnfriamiento = false
+local FakeClutchActivo = false
+local AutoEquipActivo = false
+local BotonSizeActual = 100
+local ARCHIVO_POS_BOMBA = "KillerHub_BombPosConfig.json"
 
-local CurrentTheme = Themes["Void Premium"]
+-- 📊 VARIABLES DE CONTROL INTERNO (GOLD)
+local CooldownGold = 3.0
+local EnEnfriamientoGold = false
+local GoldClutchActivo = false
+local AutoEquipGoldActivo = false
+local BotonSizeGoldActual = 100
+local ARCHIVO_POS_GOLD = "KillerHub_GoldPosConfig.json"
+
+-- 📊 VARIABLES DE CONTROL INTERNO (NORMAL/FAKE BOMB)
+local CooldownNormal = 22.0
+local EnEnfriamientoNormal = false
+local NormalClutchActivo = false
+local AutoEquipNormalActivo = false
+local BotonSizeNormalActual = 100
+local ARCHIVO_POS_NORMAL = "KillerHub_NormalPosConfig.json"
+
+-- Elementos de las UIs Flotantes
+local ScreenGuiVoid, BotonCuadradoVoid
+local ScreenGuiGold, BotonCuadradoGold
+local ScreenGuiNormal, BotonCuadradoNormal
+
+-- Identificador único para cancelar bucles viejos al morir o reiniciarse
+local ID_Generacion_Actual = 0
 
 -- ============================================================================
--- 💾 ALMACENAMIENTO DE PARÁMETROS OPTIMIZADO
+-- 💾 SISTEMA DE CONFIGURACIÓN LOCAL
 -- ============================================================================
-local CONFIG_FILE = "KillerHub_" .. PROJECT_NAME .. "_Config.json"
-local DefaultConfig = {
-    Volume = 50, ToggleKey = "RightControl", SelectedTheme = "Void Premium",
-    GuiWidth = 50, GuiHeight = 50, UiOpacity = 100, ToggleBtnSize = 46
-}
-local Config, Flags, Connections = {}, {}, {}
-
-local function connect(event, callback)
-    local conn = event:Connect(callback)
-    table.insert(Connections, conn)
-    return conn
+local function guardarPosicionBoton(archivo, xScale, xOffset, yScale, yOffset)
+    local data = {X_Scale = xScale, X_Offset = xOffset, Y_Scale = yScale, Y_Offset = yOffset}
+    pcall(function() if writefile then writefile(archivo, HttpService:JSONEncode(data)) end end)
 end
 
-for k, v in pairs(DefaultConfig) do Config[k] = v end
-
-local function saveConfig()
-    if writefile then pcall(function() writefile(CONFIG_FILE, HttpService:JSONEncode(Config)) end) end
-end
-
-pcall(function()
-    if isfile and readfile and isfile(CONFIG_FILE) then
-        local data = HttpService:JSONDecode(readfile(CONFIG_FILE))
-        if type(data) == "table" then for k, v in pairs(data) do Config[k] = v end end
-    end
-end)
-
-if Themes[Config.SelectedTheme] then CurrentTheme = Themes[Config.SelectedTheme] end
-
-local function create(instanceType, properties, parent)
-    local obj = Instance.new(instanceType)
-    for prop, val in pairs(properties) do obj[prop] = val end
-    if parent then obj.Parent = parent end
-    return obj
-end
-
-local function playUISound()
-    if not Config.Volume or Config.Volume <= 0 then return end
-    local sound = create("Sound", {SoundId = "rbxassetid://101735926591481", Volume = Config.Volume / 100}, SoundService)
-    sound:Play() Debris:AddItem(sound, 1.5)
-end
-
--- ============================================================================
--- 🖥️ ENTORNO GRÁFICO SEGURO
--- ============================================================================
-local ScreenGui = create("ScreenGui", {
-    Name = "KillerHub_Universal", 
-    IgnoreGuiInset = true, 
-    ScreenInsets = Enum.ScreenInsets.None, 
-    ResetOnSpawn = false, 
-    DisplayOrder = 999999, 
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-}, TargetParent)
-
-local MainFrame = create("Frame", {Name = "MainFrame", BackgroundColor3 = CurrentTheme.BG_MAIN, BorderSizePixel = 0, Active = true, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0)}, ScreenGui)
-local MainStroke = create("UIStroke", {Thickness = 1.2, Color = CurrentTheme.BORDER}, MainFrame)
-create("UICorner", {CornerRadius = UDim.new(0, 10)}, MainFrame)
-
-local BordeGradient = create("UIGradient", {
-    Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 35, 45)),
-        ColorSequenceKeypoint.new(0.5, CurrentTheme.ACCENT),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 15, 25))
-    }), Rotation = 45
-}, MainStroke)
-
-local function updateGuiSize()
-    local wOffset = ((Config.GuiWidth or 50) / 100) * 280
-    local hOffset = ((Config.GuiHeight or 50) / 100) * 230
-    MainFrame.Size = UDim2.new(0, math.floor(430 + wOffset), 0, math.floor(280 + hOffset))
-end
-updateGuiSize()
-
-local Topbar = create("Frame", {Size = UDim2.new(1, 0, 0, 45), BackgroundColor3 = CurrentTheme.BG_MAIN, BorderSizePixel = 0, Active = true}, MainFrame)
-create("UICorner", {CornerRadius = UDim.new(0, 10)}, Topbar)
-local TopbarPatch = create("Frame", {Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0, 0, 1, -10), BackgroundColor3 = CurrentTheme.BG_MAIN, BorderSizePixel = 0}, Topbar)
-
-local Title = create("TextLabel", {Size = UDim2.new(0, 250, 1, 0), Position = UDim2.new(0, 18, 0, 0), BackgroundTransparency = 1, Text = "Killer Hub | By Paolo", TextColor3 = CurrentTheme.ACCENT, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.GothamBold, TextSize = 14}, Topbar)
-local DecorLine = create("Frame", {Size = UDim2.new(0, 50, 0, 2), Position = UDim2.new(0, 18, 1, -2), BackgroundColor3 = CurrentTheme.ACCENT, BorderSizePixel = 0}, Topbar)
-local PerformanceLabel = create("TextLabel", {Size = UDim2.new(0, 160, 1, 0), Position = UDim2.new(1, -15, 0, 0), AnchorPoint = Vector2.new(1, 0), BackgroundTransparency = 1, Text = "FPS: -- | PING: --", TextColor3 = CurrentTheme.TEXT_MUTED, TextXAlignment = Enum.TextXAlignment.Right, Font = Enum.Font.GothamMedium, TextSize = 11}, Topbar)
-
-local loopActive = true
-task.spawn(function()
-    while loopActive do
-        task.wait(2) 
-        if ScreenGui and ScreenGui.Parent then
-            local fps = math.floor(Workspace:GetRealPhysicsFPS())
-            local ping = 0
-            pcall(function() ping = math.floor(LocalPlayer:GetNetworkPing() * 1000) end)
-            PerformanceLabel.Text = string.format("FPS: %d | PING: %dms", fps, ping)
-        else break end
-    end
-end)
-
--- ============================================================================
--- 🕹️ MOTOR DE ARRASTRE ULTRA OPTIMIZADO (0% Fuga de Memoria)
--- ============================================================================
-local function makeDraggable(clickObject, dragObject)
-    local dragging = false
-    local dragStart, startPos
-
-    connect(clickObject.InputBegan, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = dragObject.Position
-        end
-    end)
-
-    connect(UserInputService.InputChanged, function(moveInput)
-        if dragging and (moveInput.UserInputType == Enum.UserInputType.MouseMovement or moveInput.UserInputType == Enum.UserInputType.Touch) then
-            local delta = moveInput.Position - dragStart
-            local screenSize = ScreenGui.AbsoluteSize
-            
-            if dragObject == MainFrame then
-                local frameSize = MainFrame.AbsoluteSize
-                local absoluteX = (screenSize.X * 0.5) + (startPos.X.Offset + delta.X)
-                local absoluteY = (screenSize.Y * 0.5) + (startPos.Y.Offset + delta.Y)
-                local clampedX = math.clamp(absoluteX, frameSize.X / 2, screenSize.X - (frameSize.X / 2))
-                local clampedY = math.clamp(absoluteY, frameSize.Y / 2, screenSize.Y - (frameSize.Y / 2))
-                dragObject.Position = UDim2.new(0.5, clampedX - (screenSize.X * 0.5), 0.5, clampedY - (screenSize.Y * 0.5))
-            else
-                local btnSize = dragObject.AbsoluteSize
-                local newX = math.clamp(startPos.X.Offset + delta.X, 0, screenSize.X - btnSize.X)
-                local newY = math.clamp(startPos.Y.Offset + delta.Y, 0, screenSize.Y - btnSize.Y)
-                dragObject.Position = UDim2.new(0, newX, 0, newY)
-            end
-        end
-    end)
-
-    connect(UserInputService.InputEnded, function(endInput)
-        if endInput.UserInputType == Enum.UserInputType.MouseButton1 or endInput.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-end
-
-makeDraggable(Topbar, MainFrame)
-
-local Sidebar = create("Frame", {Name = "Sidebar", Size = UDim2.new(0, 125, 1, -45), Position = UDim2.new(0, 0, 0, 45), BackgroundColor3 = CurrentTheme.BG_SIDEBAR, BorderSizePixel = 0, Active = true}, MainFrame)
-local SidebarLine = create("Frame", {Size = UDim2.new(0, 1, 1, 0), Position = UDim2.new(1, -1, 0, 0), BackgroundColor3 = Color3.fromRGB(24, 24, 28), BorderSizePixel = 0}, Sidebar)
-
-local SearchBoxContainer = create("Frame", {Size = UDim2.new(1, -12, 0, 26), Position = UDim2.new(0, 6, 0, 8), BackgroundColor3 = CurrentTheme.BG_SECONDARY}, Sidebar)
-create("UICorner", {CornerRadius = UDim.new(0, 5)}, SearchBoxContainer)
-local SearchInput = create("TextBox", {Size = UDim2.new(1, -10, 1, 0), Position = UDim2.new(0, 5, 0, 0), BackgroundTransparency = 1, PlaceholderText = "Buscar...", PlaceholderColor3 = CurrentTheme.TEXT_MUTED, Text = "", TextColor3 = CurrentTheme.TEXT_WHITE, Font = Enum.Font.GothamMedium, TextSize = 11, ClearTextOnFocus = false}, SearchBoxContainer)
-
-local SidebarTabsContainer = create("ScrollingFrame", {Size = UDim2.new(1, 0, 1, -85), Position = UDim2.new(0, 0, 0, 38), BackgroundTransparency = 1, ScrollBarThickness = 0, CanvasSize = UDim2.new(0, 0, 0, 0), BorderSizePixel = 0}, Sidebar)
-local SidebarListLayout = create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4)}, SidebarTabsContainer)
-create("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6)}, SidebarTabsContainer)
-
-connect(SidebarListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-    SidebarTabsContainer.CanvasSize = UDim2.new(0, 0, 0, SidebarListLayout.AbsoluteContentSize.Y + 10)
-end)
-
-local SettingsContainer = create("Frame", {Size = UDim2.new(1, -12, 0, 36), Position = UDim2.new(0, 6, 1, -42), BackgroundTransparency = 1}, Sidebar)
-local ContentContainer = create("Frame", {Name = "ContentContainer", Size = UDim2.new(1, -125, 1, -45), Position = UDim2.new(0, 125, 0, 45), BackgroundTransparency = 1, Active = true}, MainFrame)
-
-local OpenCloseBtn = create("TextButton", {Name = "KillerHubToggle", Size = UDim2.new(0, 46, 0, 46), Position = UDim2.new(0, 15, 0, 100), BackgroundColor3 = CurrentTheme.BG_MAIN, Text = "", Active = true}, ScreenGui)
-create("UICorner", {CornerRadius = UDim.new(0, 10)}, OpenCloseBtn)
-local FloatingStroke = create("UIStroke", {Thickness = 1.5, Color = CurrentTheme.BORDER}, OpenCloseBtn)
-local BtnIcon = create("ImageLabel", {Name = "Icon", Size = UDim2.new(1, 0, 1, 0), ScaleType = Enum.ScaleType.Crop, BackgroundTransparency = 1, Image = "rbxassetid://84689030731870", ImageColor3 = CurrentTheme.ACCENT}, OpenCloseBtn)
-create("UICorner", {CornerRadius = UDim.new(0, 10)}, BtnIcon)
-
-makeDraggable(OpenCloseBtn, OpenCloseBtn)
-
-local function updateUiOpacity()
-    local trans = 1 - ((Config.UiOpacity or 100) / 100)
-    MainFrame.BackgroundTransparency = trans Topbar.BackgroundTransparency = trans Sidebar.BackgroundTransparency = trans
-end
-
-local function updateButtonSize()
-    local s = Config.ToggleBtnSize or 46 OpenCloseBtn.Size = UDim2.new(0, s, 0, s)
-end
-
-updateUiOpacity() updateButtonSize()
-
-local menuVisible = true
-local function setMenuVisibility(visible)
-    menuVisible = visible MainFrame.Visible = visible
-    BtnIcon.ImageColor3 = visible and CurrentTheme.ACCENT or CurrentTheme.TEXT_WHITE
-end
-connect(OpenCloseBtn.MouseButton1Click, function() playUISound() setMenuVisibility(not menuVisible) end)
-
-connect(UserInputService.InputBegan, function(input, gp)
-    if not gp and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == (Config.ToggleKey or "RightControl") then
-        playUISound() setMenuVisibility(not menuVisible)
-    end
-end)
-
--- ============================================================================
--- 📦 API CORE INTEGRADA
--- ============================================================================
-local Killer = {
-    Tabs = {}, Frames = {}, Buttons = {}, Config = Config, Flags = Flags,
-    CurrentTab = nil, AllElements = {}, TargetThemeElements = {}, _Trash = {}
-}
-
-function Killer:AddTask(obj) table.insert(self._Trash, obj) return obj end
-
-connect(SearchInput:GetPropertyChangedSignal("Text"), function()
-    local query = SearchInput.Text:lower()
-    for _, element in ipairs(Killer.AllElements) do
-        if element.Label and element.Instance then
-            element.Instance.Visible = (query == "" or element.Label.Text:lower():find(query)) and true or false
-        end
-    end
-end)
-
-function Killer:ApplyHover(instance, getNormalColor, getHoverColor, property)
-    property = property or "BackgroundColor3"
-    connect(instance.MouseEnter, function()
-        TweenService:Create(instance, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {[property] = getHoverColor()}):Play()
-    end)
-    connect(instance.MouseLeave, function()
-        TweenService:Create(instance, TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {[property] = getNormalColor()}):Play()
-    end)
-end
-
-function Killer:Unload()
-    loopActive = false
-    for _, conn in ipairs(Connections) do if conn then pcall(function() conn:Disconnect() end) end end
-    for _, item in ipairs(self._Trash) do
-        if typeof(item) == "RBXScriptConnection" then pcall(function() item:Disconnect() end)
-        elseif typeof(item) == "Instance" then pcall(function() item:Destroy() end) end
-    end
-    if ScreenGui then ScreenGui:Destroy() end
-    
-    table.clear(Connections)
-    table.clear(Killer.AllElements)
-    table.clear(Killer.TargetThemeElements)
-    table.clear(Killer.Tabs)
-    table.clear(Killer.Frames)
-    table.clear(Killer.Buttons)
-    getgenv().Killer = nil
-end
-
-function Killer:SetTheme(themeName)
-    if not Themes[themeName] then return end CurrentTheme = Themes[themeName] Config.SelectedTheme = themeName saveConfig()
-    MainFrame.BackgroundColor3 = CurrentTheme.BG_MAIN MainStroke.Color = CurrentTheme.BORDER Sidebar.BackgroundColor3 = CurrentTheme.BG_SIDEBAR
-    Topbar.BackgroundColor3 = CurrentTheme.BG_MAIN TopbarPatch.BackgroundColor3 = CurrentTheme.BG_MAIN
-    Title.TextColor3 = CurrentTheme.ACCENT DecorLine.BackgroundColor3 = CurrentTheme.ACCENT PerformanceLabel.TextColor3 = CurrentTheme.TEXT_MUTED
-    SearchBoxContainer.BackgroundColor3 = CurrentTheme.BG_SECONDARY OpenCloseBtn.BackgroundColor3 = CurrentTheme.BG_MAIN FloatingStroke.Color = CurrentTheme.BORDER
-    
-    BordeGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 35, 45)), ColorSequenceKeypoint.new(0.5, CurrentTheme.ACCENT), ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 15, 25))
-    })
-    for _, refreshCallback in ipairs(Killer.TargetThemeElements) do pcall(refreshCallback) end
-end
-
-local TabMethods = {} TabMethods.__index = TabMethods
-
-function TabMethods:RegisterElement(inst, textLabel, tabName)
-    table.insert(Killer.AllElements, {Instance = inst, Label = textLabel, Tab = tabName})
-end
-
-function TabMethods:CreateSection(text)
-    local Container = create("Frame", {Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1}, self.Frame)
-    local Label = create("TextLabel", {Size = UDim2.new(1, 0, 0, 14), BackgroundTransparency = 1, Text = text:upper(), TextColor3 = CurrentTheme.ACCENT, Font = Enum.Font.GothamBold, TextSize = 10, TextXAlignment = Enum.TextXAlignment.Left}, Container)
-    
-    local Line = create("Frame", {Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 0, 16), BackgroundColor3 = Color3.fromRGB(255, 255, 255)}, Container)
-    local Gradient = create("UIGradient", {
-        Color = ColorSequence.new(CurrentTheme.ACCENT),
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.1, 0.2), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(0.9, 0.2), NumberSequenceKeypoint.new(1, 1)
-        })
-    }, Line)
-
-    table.insert(Killer.TargetThemeElements, function() 
-        Label.TextColor3 = CurrentTheme.ACCENT 
-        Gradient.Color = ColorSequence.new(CurrentTheme.ACCENT)
-    end)
-    return Container
-end
-
--- ============================================================================
--- 🛠️ MOTOR SLIDER INTERNO SEGURO 
--- ============================================================================
-local function createInternalSlider(parentFrame, min, max, default, callback, onReleaseCallback)
-    local Track = create("Frame", {Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = Color3.fromRGB(36, 36, 42)}, parentFrame)
-    create("UICorner", {CornerRadius = UDim.new(0, 3)}, Track)
-    local Fill = create("Frame", {Name = "SliderFill", BackgroundColor3 = CurrentTheme.ACCENT, Size = UDim2.new(0, 0, 1, 0)}, Track)
-    create("UICorner", {CornerRadius = UDim.new(0, 3)}, Fill)
-    local Knob = create("TextButton", {Size = UDim2.new(0, 12, 0, 12), BackgroundColor3 = Color3.fromRGB(245,245,245), Text = "", AutoButtonColor = false}, Track)
-    create("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
-
-    local currentValue = default
-
-    local function updateSlider(v)
-        currentValue = math.clamp(v, min, max)
-        local pct = (currentValue - min) / (max - min)
-        Fill.Size = UDim2.new(pct, 0, 1, 0)
-        Knob.Position = UDim2.new(pct, -6, 0.5, -6)
-        pcall(callback, currentValue)
-    end
-
-    local sliding = false
-    
-    connect(Knob.InputBegan, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            sliding = true
-        end
-    end)
-    
-    connect(UserInputService.InputChanged, function(mInput)
-        if sliding and (mInput.UserInputType == Enum.UserInputType.MouseMovement or mInput.UserInputType == Enum.UserInputType.Touch) then
-            local pct = math.clamp((mInput.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-            updateSlider(min + (pct * (max - min)))
-        end
-    end)
-    
-    connect(UserInputService.InputEnded, function(eInput)
-        if eInput.UserInputType == Enum.UserInputType.MouseButton1 or eInput.UserInputType == Enum.UserInputType.Touch then
-            if sliding then
-                sliding = false
-                if onReleaseCallback then pcall(onReleaseCallback, currentValue) end
-            end
-        end
-    end)
-
-    updateSlider(currentValue)
-    return {
-        Update = updateSlider,
-        SetColor = function(color) Fill.BackgroundColor3 = color end,
-        Track = Track,
-        Fill = Fill
-    }
-end
-
-function TabMethods:CreateToggle(flagName, text, callback)
-    if Config[flagName] == nil then Config[flagName] = false end Flags[flagName] = { CurrentValue = Config[flagName] }
-    
-    local ToggleButton = create("TextButton", {Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = CurrentTheme.BG_SECONDARY, Text = "", AutoButtonColor = false}, self.Frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 6)}, ToggleButton)
-    local Stroke = create("UIStroke", {Thickness = 1, Color = CurrentTheme.BORDER}, ToggleButton)
-    
-    local ToggleLabel = create("TextLabel", {Size = UDim2.new(1, -70, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, Text = text, TextColor3 = Config[flagName] and CurrentTheme.TEXT_WHITE or CurrentTheme.TEXT_MUTED, TextXAlignment = Enum.TextXAlignment.Left, Font = Enum.Font.GothamMedium, TextSize = 12}, ToggleButton)
-    local Track = create("Frame", {Size = UDim2.new(0, 34, 0, 18), Position = UDim2.new(1, -46, 0.5, -9), BackgroundColor3 = Config[flagName] and CurrentTheme.ACCENT or Color3.fromRGB(40, 40, 46)}, ToggleButton)
-    create("UICorner", {CornerRadius = UDim.new(1, 0)}, Track)
-    local Knob = create("Frame", {Size = UDim2.new(0, 14, 0, 14), Position = Config[flagName] and UDim2.new(1, -15, 0.5, -7) or UDim2.new(0, 2, 0.5, -7), BackgroundColor3 = CurrentTheme.TEXT_WHITE}, Track)
-    create("UICorner", {CornerRadius = UDim.new(1, 0)}, Knob)
-
-    local function stateUpdate()
-        local active = Flags[flagName].CurrentValue
-        ToggleLabel.TextColor3 = active and CurrentTheme.TEXT_WHITE or CurrentTheme.TEXT_MUTED
-        TweenService:Create(Track, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {BackgroundColor3 = active and CurrentTheme.ACCENT or Color3.fromRGB(40, 40, 46)}):Play()
-        TweenService:Create(Knob, TweenInfo.new(0.15, Enum.EasingStyle.Back), {Position = active and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)}):Play()
-    end
-    
-    connect(ToggleButton.MouseButton1Click, function()
-        Flags[flagName].CurrentValue = not Flags[flagName].CurrentValue Config[flagName] = Flags[flagName].CurrentValue saveConfig() playUISound()
-        stateUpdate() task.spawn(callback, Flags[flagName].CurrentValue)
-    end)
-    
-    table.insert(Killer.TargetThemeElements, function()
-        ToggleButton.BackgroundColor3 = CurrentTheme.BG_SECONDARY Stroke.Color = CurrentTheme.BORDER stateUpdate()
-    end)
-
-    Killer:ApplyHover(ToggleButton, function() return CurrentTheme.BG_SECONDARY end, function() return CurrentTheme.BG_MAIN end)
-    stateUpdate() 
-    
-    task.defer(pcall, callback, Flags[flagName].CurrentValue)
-    
-    self:RegisterElement(ToggleButton, ToggleLabel, self.Frame.Name)
-    return {Set = function(_, bool) Flags[flagName].CurrentValue = bool Config[flagName] = bool saveConfig() stateUpdate() pcall(callback, bool) end}
-end
-
-function TabMethods:CreateSlider(flagName, text, min, max, step, callback)
-    if type(step) == "function" then callback = step step = 1 end step = step or 1
-    if Config[flagName] == nil then Config[flagName] = min end Flags[flagName] = { CurrentValue = Config[flagName] }
-    
-    local SliderFrame = create("Frame", {Name = flagName, Size = UDim2.new(1, 0, 0, 44), BackgroundTransparency = 1, Active = true}, self.Frame)
-    local Label = create("TextLabel", {Size = UDim2.new(1, -60, 0, 18), Position = UDim2.new(0, 2, 0, 2), BackgroundTransparency = 1, Text = text, TextColor3 = CurrentTheme.TEXT_WHITE, Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, SliderFrame)
-    local ValueBox = create("TextBox", {Size = UDim2.new(0, 50, 0, 18), Position = UDim2.new(1, -2, 0, 2), AnchorPoint = Vector2.new(1, 0), BackgroundTransparency = 1, TextColor3 = CurrentTheme.ACCENT, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, ClearTextOnFocus = false}, SliderFrame)
-    
-    local sliderController = createInternalSlider(SliderFrame, min, max, Flags[flagName].CurrentValue, function(v)
-        if step and step > 0 then v = math.round(v / step) * step end
-        v = math.clamp(v, min, max)
-        Flags[flagName].CurrentValue = v
-        
-        if step and step < 1 then
-            local decimals = tostring(step):match("%.(%d+)")
-            ValueBox.Text = string.format("%." .. (decimals and #decimals or 2) .. "f", v)
-        else
-            ValueBox.Text = tostring(math.round(v))
-        end
-        pcall(callback, v)
-    end, function(finalVal)
-        Config[flagName] = finalVal
-        saveConfig() 
-    end)
-    
-    sliderController.Track.Position = UDim2.new(0, 2, 0, 26)
-    sliderController.Track.Size = UDim2.new(1, -4, 0, 6)
-
-    connect(ValueBox.FocusLost, function()
-        local inputNum = tonumber(ValueBox.Text)
-        if inputNum then
-            local cleanVal = math.clamp(inputNum, min, max)
-            Config[flagName] = cleanVal
-            saveConfig()
-            sliderController.Update(cleanVal)
-        else
-            sliderController.Update(Flags[flagName].CurrentValue) 
-        end
-    end)
-    
-    table.insert(Killer.TargetThemeElements, function()
-        Label.TextColor3 = CurrentTheme.TEXT_WHITE ValueBox.TextColor3 = CurrentTheme.ACCENT
-        sliderController.SetColor(CurrentTheme.ACCENT)
-    end)
-
-    task.defer(pcall, callback, Flags[flagName].CurrentValue)
-
-    self:RegisterElement(SliderFrame, Label, self.Frame.Name)
-    return {Set = function(_, value) sliderController.Update(value) Config[flagName] = value saveConfig() end}
-end
-
-function TabMethods:CreateDropdown(flagName, text, options, callback)
-    if Config[flagName] == nil then Config[flagName] = options[1] or "" end Flags[flagName] = { CurrentValue = Config[flagName] }
-    
-    local DDFrame = create("Frame", {Name = flagName, Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = CurrentTheme.BG_SECONDARY, ClipsDescendants = true}, self.Frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 6)}, DDFrame)
-    local Stroke = create("UIStroke", {Thickness = 1, Color = CurrentTheme.BORDER}, DDFrame)
-    
-    local Trigger = create("TextButton", {Size = UDim2.new(1, 0, 0, 38), BackgroundTransparency = 1, Text = ""}, DDFrame)
-    local Label = create("TextLabel", {Size = UDim2.new(0.5, -12, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, Text = text, TextColor3 = CurrentTheme.TEXT_WHITE, Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, Trigger)
-    local SelLabel = create("TextLabel", {Size = UDim2.new(0.5, -38, 1, 0), Position = UDim2.new(1, -38, 0, 0), AnchorPoint = Vector2.new(1, 0), BackgroundTransparency = 1, Text = Flags[flagName].CurrentValue, TextColor3 = CurrentTheme.ACCENT, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right}, Trigger)
-    local Arrow = create("TextLabel", {Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -22, 0.5, -10), BackgroundTransparency = 1, Text = "▼", TextColor3 = CurrentTheme.TEXT_MUTED, Font = Enum.Font.GothamBold, TextSize = 11}, Trigger)
-    
-    local OptsScroll = create("ScrollingFrame", {Size = UDim2.new(1, -16, 0, 0), Position = UDim2.new(0, 8, 0, 38), BackgroundTransparency = 1, ScrollBarThickness = 0}, DDFrame)
-    local layout = create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4)}, OptsScroll)
-
-    local open = false
-    local function makeOptions()
-        for _, child in ipairs(OptsScroll:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
-        for i, name in ipairs(options) do
-            local OptBtn = create("TextButton", {Size = UDim2.new(1, -4, 0, 26), BackgroundColor3 = CurrentTheme.BG_MAIN, Text = name, TextColor3 = (name == Flags[flagName].CurrentValue) and CurrentTheme.ACCENT or CurrentTheme.TEXT_WHITE, Font = Enum.Font.GothamMedium, TextSize = 11, LayoutOrder = i}, OptsScroll)
-            create("UICorner", {CornerRadius = UDim.new(0, 4)}, OptBtn)
-            
-            connect(OptBtn.MouseButton1Click, function()
-                Flags[flagName].CurrentValue = name Config[flagName] = name saveConfig() SelLabel.Text = name playUISound() open = false
-                TweenService:Create(DDFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {Size = UDim2.new(1, 0, 0, 38)}):Play()
-                TweenService:Create(Arrow, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {Rotation = 0}):Play()
-                pcall(callback, name) makeOptions()
-            end)
-            Killer:ApplyHover(OptBtn, function() return CurrentTheme.BG_MAIN end, function() return CurrentTheme.BG_SECONDARY end)
-        end
-        OptsScroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
-    end
-
-    connect(Trigger.MouseButton1Click, function()
-        open = not open playUISound()
-        local targetH = open and math.min(layout.AbsoluteContentSize.Y, 120) or 0
-        TweenService:Create(DDFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {Size = UDim2.new(1, 0, 0, 38 + targetH + (open and 6 or 0))}):Play()
-        TweenService:Create(OptsScroll, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {Size = UDim2.new(1, -16, 0, targetH)}):Play()
-        TweenService:Create(Arrow, TweenInfo.new(0.15, Enum.EasingStyle.Back), {Rotation = open and 180 or 0}):Play()
-    end)
-
-    table.insert(Killer.TargetThemeElements, function()
-        DDFrame.BackgroundColor3 = CurrentTheme.BG_SECONDARY Stroke.Color = CurrentTheme.BORDER Label.TextColor3 = CurrentTheme.TEXT_WHITE SelLabel.TextColor3 = CurrentTheme.ACCENT Arrow.TextColor3 = CurrentTheme.TEXT_MUTED
-        makeOptions()
-    end)
-
-    Killer:ApplyHover(DDFrame, function() return CurrentTheme.BG_SECONDARY end, function() return CurrentTheme.BG_MAIN end)
-    makeOptions() 
-    
-    task.defer(pcall, callback, Flags[flagName].CurrentValue)
-    
-    self:RegisterElement(DDFrame, Label, self.Frame.Name)
-    return {Refresh = function(_, newOptions) options = newOptions makeOptions() end}
-end
-
-function TabMethods:CreateMultiDropdown(flagName, text, options, callback)
-    if Config[flagName] == nil or type(Config[flagName]) ~= "table" then Config[flagName] = {} end
-    Flags[flagName] = { CurrentValue = Config[flagName] }
-    
-    local DDFrame = create("Frame", {Name = flagName, Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = CurrentTheme.BG_SECONDARY, ClipsDescendants = true}, self.Frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 6)}, DDFrame)
-    local Stroke = create("UIStroke", {Thickness = 1, Color = CurrentTheme.BORDER}, DDFrame)
-    
-    local Trigger = create("TextButton", {Size = UDim2.new(1, 0, 0, 38), BackgroundTransparency = 1, Text = ""}, DDFrame)
-    local Label = create("TextLabel", {Size = UDim2.new(0.5, -12, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, Text = text, TextColor3 = CurrentTheme.TEXT_WHITE, Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, Trigger)
-    local SelLabel = create("TextLabel", {Size = UDim2.new(0.5, -38, 1, 0), Position = UDim2.new(1, -38, 0, 0), AnchorPoint = Vector2.new(1, 0), BackgroundTransparency = 1, Text = "...", TextColor3 = CurrentTheme.ACCENT, Font = Enum.Font.GothamBold, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right}, Trigger)
-    local Arrow = create("TextLabel", {Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -22, 0.5, -10), BackgroundTransparency = 1, Text = "▼", TextColor3 = CurrentTheme.TEXT_MUTED, Font = Enum.Font.GothamBold, TextSize = 11}, Trigger)
-    
-    local OptsScroll = create("ScrollingFrame", {Size = UDim2.new(1, -16, 0, 0), Position = UDim2.new(0, 8, 0, 38), BackgroundTransparency = 1, ScrollBarThickness = 0}, DDFrame)
-    local layout = create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4)}, OptsScroll)
-
-    local open = false
-    
-    local function updateSelLabel()
-        local selected = {}
-        for _, name in ipairs(options) do if Config[flagName][name] then table.insert(selected, name) end end
-        if #selected == 0 then SelLabel.Text = "Ninguno"
-        elseif #selected > 2 then SelLabel.Text = tostring(#selected) .. " Selecc."
-        else SelLabel.Text = table.concat(selected, ", ") end
-    end
-
-    local function makeOptions()
-        for _, child in ipairs(OptsScroll:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
-        for i, name in ipairs(options) do
-            if Config[flagName][name] == nil then Config[flagName][name] = false end
-            local active = Config[flagName][name]
-            
-            local OptBtn = create("TextButton", {Size = UDim2.new(1, -4, 0, 26), BackgroundColor3 = CurrentTheme.BG_MAIN, Text = name, TextColor3 = active and CurrentTheme.ACCENT or CurrentTheme.TEXT_WHITE, Font = Enum.Font.GothamMedium, TextSize = 11, LayoutOrder = i}, OptsScroll)
-            create("UICorner", {CornerRadius = UDim.new(0, 4)}, OptBtn)
-            
-            connect(OptBtn.MouseButton1Click, function()
-                Config[flagName][name] = not Config[flagName][name]
-                Flags[flagName].CurrentValue = Config[flagName]
-                saveConfig() playUISound()
-                OptBtn.TextColor3 = Config[flagName][name] and CurrentTheme.ACCENT or CurrentTheme.TEXT_WHITE
-                updateSelLabel() pcall(callback, Config[flagName])
-            end)
-            Killer:ApplyHover(OptBtn, function() return CurrentTheme.BG_MAIN end, function() return CurrentTheme.BG_SECONDARY end)
-        end
-        OptsScroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
-        updateSelLabel()
-    end
-
-    connect(Trigger.MouseButton1Click, function()
-        open = not open playUISound()
-        local targetH = open and math.min(layout.AbsoluteContentSize.Y, 120) or 0
-        TweenService:Create(DDFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {Size = UDim2.new(1, 0, 0, 38 + targetH + (open and 6 or 0))}):Play()
-        TweenService:Create(OptsScroll, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {Size = UDim2.new(1, -16, 0, targetH)}):Play()
-        TweenService:Create(Arrow, TweenInfo.new(0.15, Enum.EasingStyle.Back), {Rotation = open and 180 or 0}):Play()
-    end)
-
-    table.insert(Killer.TargetThemeElements, function()
-        DDFrame.BackgroundColor3 = CurrentTheme.BG_SECONDARY Stroke.Color = CurrentTheme.BORDER Label.TextColor3 = CurrentTheme.TEXT_WHITE SelLabel.TextColor3 = CurrentTheme.ACCENT Arrow.TextColor3 = CurrentTheme.TEXT_MUTED
-        makeOptions()
-    end)
-
-    Killer:ApplyHover(DDFrame, function() return CurrentTheme.BG_SECONDARY end, function() return CurrentTheme.BG_MAIN end)
-    makeOptions() 
-    
-    task.defer(pcall, callback, Flags[flagName].CurrentValue)
-    
-    self:RegisterElement(DDFrame, Label, self.Frame.Name)
-    return {Refresh = function(_, newOptions) options = newOptions makeOptions() end}
-end
-
--- ============================================================================
--- 🎨 COLOR PICKER REAL COMPLETO 
--- ============================================================================
-function TabMethods:CreateColorPicker(flagName, text, defaultColor, callback)
-    if Config[flagName] == nil or type(Config[flagName]) ~= "table" then 
-        Config[flagName] = {defaultColor.R, defaultColor.G, defaultColor.B}
-    end
-    
-    local saved = Config[flagName]
-    local currentRGB = Color3.new(saved[1], saved[2], saved[3])
-    Flags[flagName] = { CurrentValue = currentRGB }
-
-    local CPFrame = create("Frame", {Name = flagName, Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = CurrentTheme.BG_SECONDARY, ClipsDescendants = true}, self.Frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 6)}, CPFrame)
-    local Stroke = create("UIStroke", {Thickness = 1, Color = CurrentTheme.BORDER}, CPFrame)
-
-    local Trigger = create("TextButton", {Size = UDim2.new(1, 0, 0, 38), BackgroundTransparency = 1, Text = ""}, CPFrame)
-    local Label = create("TextLabel", {Size = UDim2.new(1, -70, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, Text = text, TextColor3 = CurrentTheme.TEXT_WHITE, Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, Trigger)
-    
-    local ColorPreview = create("Frame", {Size = UDim2.new(0, 34, 0, 18), Position = UDim2.new(1, -46, 0.5, -9), BackgroundColor3 = currentRGB}, Trigger)
-    create("UICorner", {CornerRadius = UDim.new(0, 4)}, ColorPreview)
-    create("UIStroke", {Thickness = 1, Color = Color3.fromRGB(255, 255, 255), BackgroundTransparency = 0.7}, ColorPreview)
-
-    local SliderContainer = create("Frame", {Size = UDim2.new(1, -24, 0, 65), Position = UDim2.new(0, 12, 0, 38), BackgroundTransparency = 1}, CPFrame)
-    local open = false
-
-    local function updateColor()
-        Flags[flagName].CurrentValue = currentRGB
-        ColorPreview.BackgroundColor3 = currentRGB
-        pcall(callback, currentRGB)
-    end
-
-    local rSlider = createInternalSlider(SliderContainer, 0, 255, currentRGB.R * 255, function(v)
-        currentRGB = Color3.new(v/255, currentRGB.G, currentRGB.B) updateColor()
-    end, function() Config[flagName] = {currentRGB.R, currentRGB.G, currentRGB.B} saveConfig() end)
-    
-    local gSlider = createInternalSlider(SliderContainer, 0, 255, currentRGB.G * 255, function(v)
-        currentRGB = Color3.new(currentRGB.R, v/255, currentRGB.B) updateColor()
-    end, function() Config[flagName] = {currentRGB.R, currentRGB.G, currentRGB.B} saveConfig() end)
-    
-    local bSlider = createInternalSlider(SliderContainer, 0, 255, currentRGB.B * 255, function(v)
-        currentRGB = Color3.new(currentRGB.R, currentRGB.G, v/255) updateColor()
-    end, function() Config[flagName] = {currentRGB.R, currentRGB.G, currentRGB.B} saveConfig() end)
-
-    rSlider.Track.Position = UDim2.new(0, 0, 0, 10)
-    rSlider.Track.Size = UDim2.new(1, 0, 0, 6)
-    rSlider.Fill.BackgroundColor3 = Color3.fromRGB(235, 35, 35)
-    
-    gSlider.Track.Position = UDim2.new(0, 0, 0, 30)
-    gSlider.Track.Size = UDim2.new(1, 0, 0, 6)
-    gSlider.Fill.BackgroundColor3 = Color3.fromRGB(35, 235, 35)
-
-    bSlider.Track.Position = UDim2.new(0, 0, 0, 50)
-    bSlider.Track.Size = UDim2.new(1, 0, 0, 6)
-    bSlider.Fill.BackgroundColor3 = Color3.fromRGB(35, 35, 235)
-
-    connect(Trigger.MouseButton1Click, function()
-        open = not open playUISound()
-        TweenService:Create(CPFrame, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {Size = UDim2.new(1, 0, 0, open and 115 or 38)}):Play()
-    end)
-
-    table.insert(Killer.TargetThemeElements, function()
-        CPFrame.BackgroundColor3 = CurrentTheme.BG_SECONDARY Stroke.Color = CurrentTheme.BORDER Label.TextColor3 = CurrentTheme.TEXT_WHITE
-    end)
-
-    Killer:ApplyHover(CPFrame, function() return CurrentTheme.BG_SECONDARY end, function() return CurrentTheme.BG_MAIN end)
-    
-    task.defer(pcall, callback, currentRGB)
-
-    self:RegisterElement(CPFrame, Label, self.Frame.Name)
-    
-    return {
-        Set = function(_, newColor) 
-            currentRGB = newColor
-            rSlider.Update(newColor.R * 255)
-            gSlider.Update(newColor.G * 255)
-            bSlider.Update(newColor.B * 255)
-            Config[flagName] = {newColor.R, newColor.G, newColor.B} saveConfig()
-        end
-    }
-end
-
--- ============================================================================
--- 🔓 COMPONENTE INPUT 
--- ============================================================================
-function TabMethods:CreateInput(flagName, text, placeholder, callback)
-    if Config[flagName] == nil then Config[flagName] = "" end 
-    
-    local InpFrame = create("Frame", {Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = CurrentTheme.BG_SECONDARY}, self.Frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 6)}, InpFrame) 
-    local Stroke = create("UIStroke", {Thickness = 1, Color = CurrentTheme.BORDER}, InpFrame)
-    
-    local Label = create("TextLabel", {Size = UDim2.new(1, -170, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, Text = text, TextColor3 = CurrentTheme.TEXT_WHITE, Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, InpFrame)
-    
-    local Box = create("TextBox", {
-        Size = UDim2.new(0, 140, 0, 26), 
-        Position = UDim2.new(1, -12, 0.5, 0), 
-        AnchorPoint = Vector2.new(1, 0.5), 
-        BackgroundColor3 = CurrentTheme.BG_MAIN, 
-        Text = Config[flagName], 
-        PlaceholderText = placeholder, 
-        PlaceholderColor3 = CurrentTheme.TEXT_MUTED, 
-        TextColor3 = CurrentTheme.TEXT_WHITE, 
-        Font = Enum.Font.GothamMedium, 
-        TextSize = 11, 
-        ClearTextOnFocus = false,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, InpFrame)
-    create("UICorner", {CornerRadius = UDim.new(0, 4)}, Box)
-    create("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)}, Box) 
-    
-    connect(Box.FocusLost, function() Config[flagName] = Box.Text saveConfig() pcall(callback, Box.Text) end)
-    
-    table.insert(Killer.TargetThemeElements, function()
-        InpFrame.BackgroundColor3 = CurrentTheme.BG_SECONDARY Stroke.Color = CurrentTheme.BORDER Label.TextColor3 = CurrentTheme.TEXT_WHITE Box.BackgroundColor3 = CurrentTheme.BG_MAIN Box.TextColor3 = CurrentTheme.TEXT_WHITE
-    end)
-    
-    Killer:ApplyHover(InpFrame, function() return CurrentTheme.BG_SECONDARY end, function() return CurrentTheme.BG_MAIN end)
-    
-    task.defer(pcall, callback, Config[flagName])
-
-    self:RegisterElement(InpFrame, Label, self.Frame.Name)
-end
-
-function TabMethods:CreateKeybind(flagName, text, defaultKey, callback)
-    if Config[flagName] == nil then Config[flagName] = defaultKey.Name end 
-    
-    local KFrame = create("Frame", {Size = UDim2.new(1, 0, 0, 38), BackgroundColor3 = CurrentTheme.BG_SECONDARY}, self.Frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 6)}, KFrame) 
-    local Stroke = create("UIStroke", {Thickness = 1, Color = CurrentTheme.BORDER}, KFrame)
-    
-    local Lbl = create("TextLabel", {Size = UDim2.new(1, -120, 1, 0), Position = UDim2.new(0, 12, 0, 0), BackgroundTransparency = 1, Text = text, TextColor3 = CurrentTheme.TEXT_WHITE, Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, KFrame)
-    local BBtn = create("TextButton", {Size = UDim2.new(0, 85, 0, 26), Position = UDim2.new(1, -12, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5), BackgroundColor3 = CurrentTheme.BG_MAIN, Text = Config[flagName], TextColor3 = CurrentTheme.ACCENT, Font = Enum.Font.GothamBold, TextSize = 11}, KFrame)
-    create("UICorner", {CornerRadius = UDim.new(0, 4)}, BBtn)
-    
-    local listening = false 
-    connect(BBtn.MouseButton1Click, function() listening = true BBtn.Text = "..." playUISound() end)
-    connect(UserInputService.InputBegan, function(input, gp) 
-        if listening and input.UserInputType == Enum.UserInputType.Keyboard then 
-            listening = false Config[flagName] = input.KeyCode.Name saveConfig() BBtn.Text = input.KeyCode.Name pcall(callback, input.KeyCode) 
-        end 
-    end)
-    
-    table.insert(Killer.TargetThemeElements, function()
-        KFrame.BackgroundColor3 = CurrentTheme.BG_SECONDARY Stroke.Color = CurrentTheme.BORDER Lbl.TextColor3 = CurrentTheme.TEXT_WHITE BBtn.BackgroundColor3 = CurrentTheme.BG_MAIN BBtn.TextColor3 = CurrentTheme.ACCENT
-    end)
-    
-    Killer:ApplyHover(KFrame, function() return CurrentTheme.BG_SECONDARY end, function() return CurrentTheme.BG_MAIN end)
-    
-    local success, keyEnum = pcall(function() return Enum.KeyCode[Config[flagName]] end)
-    if success then task.defer(pcall, callback, keyEnum) end
-
-    self:RegisterElement(KFrame, Lbl, self.Frame.Name)
-end
-
-function TabMethods:CreateButton(text, callback)
-    local Button = create("TextButton", {Size = UDim2.new(1, 0, 0, 34), BackgroundColor3 = CurrentTheme.BG_SECONDARY, Text = text, TextColor3 = CurrentTheme.TEXT_WHITE, Font = Enum.Font.GothamBold, TextSize = 12}, self.Frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 6)}, Button)
-    local Stroke = create("UIStroke", {Thickness = 1, Color = CurrentTheme.BORDER}, Button)
-    
-    connect(Button.MouseButton1Click, function() playUISound() pcall(callback) end)
-    table.insert(Killer.TargetThemeElements, function()
-        Button.BackgroundColor3 = CurrentTheme.BG_SECONDARY Stroke.Color = CurrentTheme.BORDER Button.TextColor3 = CurrentTheme.TEXT_WHITE
-    end)
-    Killer:ApplyHover(Button, function() return CurrentTheme.BG_SECONDARY end, function() return CurrentTheme.BG_MAIN end)
-    self:RegisterElement(Button, Button, self.Frame.Name)
-end
-
-function TabMethods:CreateParagraph(title, text)
-    local Frame = create("Frame", {Size = UDim2.new(1, 0, 0, 52), BackgroundColor3 = CurrentTheme.BG_SECONDARY}, self.Frame)
-    create("UICorner", {CornerRadius = UDim.new(0, 6)}, Frame)
-    local Stroke = create("UIStroke", {Thickness = 1, Color = CurrentTheme.BORDER}, Frame)
-    
-    local Tl = create("TextLabel", {Size = UDim2.new(1, -24, 0, 18), Position = UDim2.new(0, 12, 0, 5), BackgroundTransparency = 1, Text = title, TextColor3 = CurrentTheme.ACCENT, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, Frame)
-    local Tx = create("TextLabel", {Size = UDim2.new(1, -24, 0, 26), Position = UDim2.new(0, 12, 0, 21), BackgroundTransparency = 1, Text = text, TextColor3 = CurrentTheme.TEXT_MUTED, Font = Enum.Font.GothamMedium, TextSize = 11, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top}, Frame)
-    
-    table.insert(Killer.TargetThemeElements, function()
-        Frame.BackgroundColor3 = CurrentTheme.BG_SECONDARY Stroke.Color = CurrentTheme.BORDER Tl.TextColor3 = CurrentTheme.ACCENT Tx.TextColor3 = CurrentTheme.TEXT_MUTED
-    end)
-end
-
--- ============================================================================
--- 🔓 INYECTOR DE CONTENEDORES ASÍNCRONOS
--- ============================================================================
-function Killer:CreateTab(name, iconId)
-    local isSettings = (name == "Settings")
-    local frame = create("ScrollingFrame", {
-        Name = name .. "Frame", Size = UDim2.new(1, -24, 1, -24), Position = UDim2.new(0, 12, 0, 12),
-        BackgroundColor3 = CurrentTheme.BG_SECONDARY, Visible = false, ScrollBarThickness = 0, CanvasSize = UDim2.new(0, 0, 0, 0), BorderSizePixel = 0
-    }, ContentContainer)
-    create("UICorner", {CornerRadius = UDim.new(0, 6)}, frame)
-    local stroke = create("UIStroke", {Thickness = 1, Color = CurrentTheme.BORDER}, frame)
-    
-    local layout = create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4)}, frame)
-    create("UIPadding", {PaddingTop = UDim.new(0, 6), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)}, frame)
-    
-    connect(layout:GetPropertyChangedSignal("AbsoluteContentSize"), function() 
-        frame.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 15) 
-    end)
-
-    local btn = create("TextButton", {Size = UDim2.new(1, 0, 0, 32), BackgroundTransparency = 1, Text = ""}, (isSettings and SettingsContainer or SidebarTabsContainer))
-    local btnLabel = create("TextLabel", {Size = UDim2.new(1, iconId and -24 or 0, 1, 0), Position = UDim2.new(0, iconId and 24 or 0, 0, 0), BackgroundTransparency = 1, Text = name, TextColor3 = CurrentTheme.TEXT_MUTED, Font = Enum.Font.GothamBold, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left}, btn)
-
-    local iconImg
-    if iconId then iconImg = create("ImageLabel", {Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0, 4, 0.5, -7), BackgroundTransparency = 1, Image = iconId, ImageColor3 = CurrentTheme.TEXT_MUTED}, btn) end
-    local line = create("Frame", {Name = "IndicatorLine", Size = UDim2.new(0, 2, 0, 14), Position = UDim2.new(0, -4, 0.5, -7), BackgroundColor3 = CurrentTheme.ACCENT, BackgroundTransparency = 1}, btn)
-
-    Killer.Frames[name] = frame Killer.Buttons[name] = btn
-    
-    local function selectTab()
-        for tName, tFrame in pairs(Killer.Frames) do
-            local tBtn = Killer.Buttons[tName] local tLine = tBtn:FindFirstChild("IndicatorLine") local tLabel = tBtn:FindFirstChildWhichIsA("TextLabel") local tIcon = tBtn:FindFirstChildWhichIsA("ImageLabel")
-            if tName == name then 
-                tFrame.Visible = true if tLabel then tLabel.TextColor3 = CurrentTheme.TEXT_WHITE end if tLine then tLine.BackgroundTransparency = 0 end if tIcon then tIcon.ImageColor3 = CurrentTheme.TEXT_WHITE end
-            else 
-                tFrame.Visible = false if tLabel then tLabel.TextColor3 = CurrentTheme.TEXT_MUTED end if tLine then tLine.BackgroundTransparency = 1 end if tIcon then tIcon.ImageColor3 = CurrentTheme.TEXT_MUTED end
-            end
-        end
-        Killer.CurrentTab = name
-    end
-    
-    connect(btn.MouseButton1Click, function() if Killer.CurrentTab ~= name then selectTab() playUISound() end end)
-    
-    table.insert(Killer.TargetThemeElements, function()
-        frame.BackgroundColor3 = CurrentTheme.BG_SECONDARY stroke.Color = CurrentTheme.BORDER line.BackgroundColor3 = CurrentTheme.ACCENT
-        if Killer.CurrentTab == name then
-            btnLabel.TextColor3 = CurrentTheme.TEXT_WHITE if iconImg then iconImg.ImageColor3 = CurrentTheme.TEXT_WHITE end
-        else
-            btnLabel.TextColor3 = CurrentTheme.TEXT_MUTED if iconImg then iconImg.ImageColor3 = CurrentTheme.TEXT_MUTED end
-        end
-    end)
-
-    local tabObj = setmetatable({ Frame = frame }, TabMethods)
-    Killer.Tabs[name] = tabObj return tabObj
-end
-
--- ============================================================================
--- 🏠 PESTAÑA PRINCIPAL (DASHBOARD HOME)
--- ============================================================================
-local HomeTab = Killer:CreateTab("Home", "rbxassetid://10747383845")
-HomeTab:CreateSection("Panel De Control Principal")
-
-local WelcomeCard = create("Frame", {Size = UDim2.new(1, 0, 0, 70), BackgroundColor3 = CurrentTheme.BG_MAIN}, HomeTab.Frame)
-create("UICorner", {CornerRadius = UDim.new(0, 8)}, WelcomeCard)
-local MainCardStroke = create("UIStroke", {Thickness = 1, Color = CurrentTheme.BORDER}, WelcomeCard)
-
-local AvatarImage = create("ImageLabel", {Size = UDim2.new(0, 50, 0, 50), Position = UDim2.new(0, 10, 0.5, -25), BackgroundColor3 = CurrentTheme.BG_SECONDARY, Image = "rbxassetid://0"}, WelcomeCard)
-create("UICorner", {CornerRadius = UDim.new(1, 0)}, AvatarImage)
-
-task.spawn(function()
+local function cargarPosicionBoton(archivo, defX, defY)
+    local de_vuelta = {ScaleX = defX, OffsetX = -50, ScaleY = defY, OffsetY = -50}
     pcall(function()
-        local content, ready = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
-        if ready then AvatarImage.Image = content end
-    end)
-end)
-
-local UserWelcomeLabel = create("TextLabel", {Size = UDim2.new(1, -80, 0, 20), Position = UDim2.new(0, 70, 0, 15), BackgroundTransparency = 1, Text = "Hola, " .. LocalPlayer.DisplayName .. " (@" .. LocalPlayer.Name .. ")", TextColor3 = CurrentTheme.TEXT_WHITE, Font = Enum.Font.GothamBold, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left}, WelcomeCard)
-local StatusLabel = create("TextLabel", {Size = UDim2.new(1, -80, 0, 16), Position = UDim2.new(0, 70, 0, 33), BackgroundTransparency = 1, Text = "Estatus: Premium Activo 💎", TextColor3 = Color3.fromRGB(0, 230, 115), Font = Enum.Font.GothamMedium, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left}, WelcomeCard)
-
-local ExecName = (identifyexecutor and identifyexecutor()) or "Mobile/PC Executor"
-HomeTab:CreateSection("Información De Execution")
-HomeTab:CreateParagraph("Software Detectado:", "Estás ejecutando Killer Hub mediante: " .. tostring(ExecName))
-HomeTab:CreateParagraph("Soporte Técnico Universal:", "Librería gráfica optimizada al 100% con protector perimetral contra pérdida de UI.")
-
-table.insert(Killer.TargetThemeElements, function()
-    WelcomeCard.BackgroundColor3 = CurrentTheme.BG_MAIN 
-    MainCardStroke.Color = CurrentTheme.BORDER
-    UserWelcomeLabel.TextColor3 = CurrentTheme.TEXT_WHITE
-end)
-
--- ============================================================================
--- ⚙️ PESTAÑA DE AJUSTES GLOBALES
--- ============================================================================
-local SettingsTab = Killer:CreateTab("Settings", "rbxassetid://10747372517")
-SettingsTab:CreateSection("Personalización")
-SettingsTab:CreateDropdown("SelectedTheme", "Tema Visual:", {"Void Premium", "Crimson Dark", "Blood", "Classic Dark"}, function(selected) Killer:SetTheme(selected) end)
-SettingsTab:CreateSlider("UiOpacity", "Opacidad de la Interfaz (%)", 10, 100, 1, function(v) updateUiOpacity() end)
-
-SettingsTab:CreateSection("Controles del Menú")
-SettingsTab:CreateKeybind("ToggleKey", "Cerrar / Abrir Menu (PC)", Enum.KeyCode.RightControl)
-SettingsTab:CreateSlider("ToggleBtnSize", "Tamaño de Botón Flotante", 30, 80, 1, function(v) updateButtonSize() end)
-SettingsTab:CreateSlider("Volume", "Volumen Interfaz (%)", 0, 100, 1, function(v) Config.Volume = v end)
-SettingsTab:CreateSlider("GuiWidth", "Ajustar Ancho Ventana", 0, 100, 1, function(v) updateGuiSize() end)
-SettingsTab:CreateSlider("GuiHeight", "Ajustar Alto Ventana", 0, 100, 1, function(v) updateGuiSize() end)
-
-SettingsTab:CreateSection("Seguridad y Limpieza")
-SettingsTab:CreateButton("Apagar Script por Completo (Unload)", function() Killer:Unload() end)
-
--- ============================================================================
--- 🚀 INICIALIZACIÓN DE PESTAÑA PREDETERMINADA Y RETORNO
--- ============================================================================
-task.defer(function()
-    if Killer.Buttons["Home"] then 
-        for tName, tFrame in pairs(Killer.Frames) do
-            tFrame.Visible = (tName == "Home")
-            local tBtn = Killer.Buttons[tName]
-            if tBtn then
-                local lbl = tBtn:FindFirstChildWhichIsA("TextLabel")
-                if lbl then 
-                    lbl.TextColor3 = (tName == "Home") and CurrentTheme.TEXT_WHITE or CurrentTheme.TEXT_MUTED
-                end
+        if readfile and isfile and isfile(archivo) then
+            local decoded = HttpService:JSONDecode(readfile(archivo))
+            if decoded then
+                de_vuelta.ScaleX = decoded.X_Scale or de_vuelta.ScaleX
+                de_vuelta.OffsetX = decoded.X_Offset or de_vuelta.OffsetX
+                de_vuelta.ScaleY = decoded.Y_Scale or de_vuelta.ScaleY
+                de_vuelta.OffsetY = decoded.Y_Offset or de_vuelta.OffsetY
             end
         end
+    end)
+    return de_vuelta
+end
+
+-- ============================================================================
+-- ⚡ LÓGICAS CORE DE IMPULSO (SISTEMA os.clock() & PROTECCIÓN EXISTENCIA)
+-- ============================================================================
+local function EjecutarBombJump()
+    if EnEnfriamiento or not FakeClutchActivo then return end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    
+    -- 🛡️ PROTECCIÓN ANTI-FALLO: Comprobar existencia real de la bomba
+    local tieneBomba = (char and char:FindFirstChild("DiamondBomb")) or (backpack and backpack:FindFirstChild("DiamondBomb"))
+    if not tieneBomba then return end
+    
+    if hum and root and hum.Health > 0 then
+        if AutoEquipActivo and backpack then
+            local bombInBackpack = backpack:FindFirstChild("DiamondBomb")
+            if bombInBackpack then hum:EquipTool(bombInBackpack); task.wait(0.05) end
+        end
+        local bomb = char:FindFirstChild("DiamondBomb")
+        if bomb and bomb:FindFirstChild("Remote") then
+            EnEnfriamiento = true; BotonCuadradoVoid.Active = false
+            hum.Jump = true; task.wait(0.15)
+            root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, POTENCIA_SALTO, root.AssemblyLinearVelocity.Z)
+            task.spawn(function() bomb.Remote:FireServer(CFrame.new(root.Position - Vector3.new(0, 3, 0)), 50) end)
+            
+            -- Lógica temporal absoluta inmune a tirones
+            local tiempoFinal = os.clock() + CooldownBomba
+            local idAlIniciar = ID_Generacion_Actual
+            task.spawn(function()
+                while os.clock() < tiempoFinal and FakeClutchActivo and idAlIniciar == ID_Generacion_Actual do
+                    local restante = tiempoFinal - os.clock()
+                    BotonCuadradoVoid.Text = string.format("%.1fs", math.max(0, restante))
+                    BotonCuadradoVoid.TextColor3 = Color3.fromRGB(120, 120, 120)
+                    task.wait(0.05)
+                end
+                if BotonCuadradoVoid and FakeClutchActivo and idAlIniciar == ID_Generacion_Actual then
+                    BotonCuadradoVoid.Text = "BOMB JUMP"; BotonCuadradoVoid.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    BotonCuadradoVoid.Active = true; EnEnfriamiento = false
+                end
+            end)
+        end
     end
+end
+
+local function EjecutarGoldBombJump()
+    if EnEnfriamientoGold or not GoldClutchActivo then return end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    
+    -- 🛡️ PROTECCIÓN ANTI-FALLO: Comprobar existencia real de la bomba
+    local tieneBomba = (char and char:FindFirstChild("GoldBomb")) or (backpack and backpack:FindFirstChild("GoldBomb"))
+    if not tieneBomba then return end
+    
+    if hum and root and hum.Health > 0 then
+        if AutoEquipGoldActivo and backpack then
+            local goldInBackpack = backpack:FindFirstChild("GoldBomb")
+            if goldInBackpack then hum:EquipTool(goldInBackpack); task.wait(0.05) end
+        end
+        local goldBomb = char:FindFirstChild("GoldBomb")
+        if goldBomb and goldBomb:FindFirstChild("Remote") then
+            EnEnfriamientoGold = true; BotonCuadradoGold.Active = false
+            hum.Jump = true; task.wait(0.15)
+            root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, POTENCIA_SALTO, root.AssemblyLinearVelocity.Z)
+            task.spawn(function() goldBomb.Remote:FireServer(CFrame.new(root.Position - Vector3.new(0, 3, 0)), 50) end)
+            
+            local tiempoFinal = os.clock() + CooldownGold
+            local idAlIniciar = ID_Generacion_Actual
+            task.spawn(function()
+                while os.clock() < tiempoFinal and GoldClutchActivo and idAlIniciar == ID_Generacion_Actual do
+                    local restante = tiempoFinal - os.clock()
+                    BotonCuadradoGold.Text = string.format("%.1fs", math.max(0, restante))
+                    BotonCuadradoGold.TextColor3 = Color3.fromRGB(120, 120, 120)
+                    task.wait(0.05)
+                end
+                if BotonCuadradoGold and GoldClutchActivo and idAlIniciar == ID_Generacion_Actual then
+                    BotonCuadradoGold.Text = "GOLD JUMP"; BotonCuadradoGold.TextColor3 = Color3.fromRGB(218, 165, 32)
+                    BotonCuadradoGold.Active = true; EnEnfriamientoGold = false
+                end
+            end)
+        end
+    end
+end
+
+local function EjecutarNormalBombJump()
+    if EnEnfriamientoNormal or not NormalClutchActivo then return end
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    
+    -- 🛡️ PROTECCIÓN ANTI-FALLO: Comprobar existencia real de la bomba (FakeBomb)[span_0](start_span)[span_0](end_span)
+    local tieneBomba = (char and char:FindFirstChild("FakeBomb")) or (backpack and backpack:FindFirstChild("FakeBomb"))
+    if not tieneBomba then return end
+    
+    if hum and root and hum.Health > 0 then
+        if AutoEquipNormalActivo and backpack then
+            local normalInBackpack = backpack:FindFirstChild("FakeBomb")
+            if normalInBackpack then hum:EquipTool(normalInBackpack); task.wait(0.05) end
+        end
+        local fakeBomb = char:FindFirstChild("FakeBomb")
+        if fakeBomb and fakeBomb:FindFirstChild("Remote") then
+            EnEnfriamientoNormal = true; BotonCuadradoNormal.Active = false
+            hum.Jump = true; task.wait(0.15)
+            root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, POTENCIA_SALTO, root.AssemblyLinearVelocity.Z)
+            task.spawn(function() fakeBomb.Remote:FireServer(CFrame.new(root.Position - Vector3.new(0, 3, 0)), 50) end)
+            
+            local tiempoFinal = os.clock() + CooldownNormal
+            local idAlIniciar = ID_Generacion_Actual
+            task.spawn(function()
+                while os.clock() < tiempoFinal and NormalClutchActivo and idAlIniciar == ID_Generacion_Actual do
+                    local restante = tiempoFinal - os.clock()
+                    BotonCuadradoNormal.Text = string.format("%.1fs", math.max(0, restante))
+                    BotonCuadradoNormal.TextColor3 = Color3.fromRGB(120, 120, 120)
+                    task.wait(0.05)
+                end
+                if BotonCuadradoNormal and NormalClutchActivo and idAlIniciar == ID_Generacion_Actual then
+                    BotonCuadradoNormal.Text = "FAKE JUMP"; BotonCuadradoNormal.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    BotonCuadradoNormal.Active = true; EnEnfriamientoNormal = false
+                end
+            end)
+        end
+    end
+end
+
+-- ============================================================================
+-- 🔄 DETECTOR DE REINICIO AUTOMÁTICO (RESET INSTANTÁNEO)
+-- ============================================================================
+local function AlReaparecerPersonaje()
+    ID_Generacion_Actual = ID_Generacion_Actual + 1
+    
+    EnEnfriamiento = false
+    EnEnfriamientoGold = false
+    EnEnfriamientoNormal = false
+    
+    if BotonCuadradoVoid and FakeClutchActivo then
+        BotonCuadradoVoid.Text = "BOMB JUMP"
+        BotonCuadradoVoid.TextColor3 = Color3.fromRGB(255, 255, 255)
+        BotonCuadradoVoid.Active = true
+    end
+    if BotonCuadradoGold and GoldClutchActivo then
+        BotonCuadradoGold.Text = "GOLD JUMP"
+        BotonCuadradoGold.TextColor3 = Color3.fromRGB(218, 165, 32)
+        BotonCuadradoGold.Active = true
+    end
+    if BotonCuadradoNormal and NormalClutchActivo then
+        BotonCuadradoNormal.Text = "FAKE JUMP"
+        BotonCuadradoNormal.TextColor3 = Color3.fromRGB(255, 255, 255)
+        BotonCuadradoNormal.Active = true
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(AlReaparecerPersonaje)
+if LocalPlayer.Character then task.spawn(AlReaparecerPersonaje) end
+
+-- ============================================================================
+-- 🔳 CONSTRUCTORES DE INTERFAZ FLOTANTE
+-- ============================================================================
+local function AplicarEstiloShoot(boton, cornerRadius, strokeColor)
+    boton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    boton.BackgroundTransparency = 0.65
+    boton.Font = Enum.Font.GothamBold
+    boton.TextSize = 11
+    boton.TextStrokeTransparency = 1
+    boton.BorderSizePixel = 0
+    boton.Active = true
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, cornerRadius)
+    Corner.Parent = boton
+
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Thickness = 2
+    Stroke.Color = strokeColor
+    Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    Stroke.Parent = boton
+end
+
+local function ConfigurarArrastre(boton, archivoConfig)
+    local dragging, dragInput, dragStart, startPos
+    boton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = boton.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    guardarPosicionBoton(archivoConfig, boton.Position.X.Scale, boton.Position.X.Offset, boton.Position.Y.Scale, boton.Position.Y.Offset)
+                end
+            end)
+        end
+    end)
+    boton.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            boton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+local function CrearBotonFlotanteVoid()
+    if CoreGui:FindFirstChild("KillerHub_VoidClutch") then CoreGui.KillerHub_VoidClutch:Destroy() end
+    ScreenGuiVoid = Instance.new("ScreenGui", CoreGui); ScreenGuiVoid.Name = "KillerHub_VoidClutch"; ScreenGuiVoid.ResetOnSpawn = false
+    local pos = cargarPosicionBoton(ARCHIVO_POS_BOMBA, 0.5, 0.7)
+    BotonCuadradoVoid = Instance.new("TextButton", ScreenGuiVoid); BotonCuadradoVoid.Name = "VoidJumpButton"
+    BotonCuadradoVoid.Size = UDim2.new(0, BotonSizeActual, 0, BotonSizeActual)
+    BotonCuadradoVoid.Position = UDim2.new(pos.ScaleX, pos.OffsetX, pos.ScaleY, pos.OffsetY)
+    BotonCuadradoVoid.Text = EnEnfriamiento and "..." or "BOMB JUMP"
+    BotonCuadradoVoid.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AplicarEstiloShoot(BotonCuadradoVoid, 28, Color3.fromRGB(30, 15, 50))
+    ConfigurarArrastre(BotonCuadradoVoid, ARCHIVO_POS_BOMBA)
+    BotonCuadradoVoid.MouseButton1Click:Connect(EjecutarBombJump)
+end
+
+local function CrearBotonFlotanteGold()
+    if CoreGui:FindFirstChild("KillerHub_GoldClutch") then CoreGui.KillerHub_GoldClutch:Destroy() end
+    ScreenGuiGold = Instance.new("ScreenGui", CoreGui); ScreenGuiGold.Name = "KillerHub_GoldClutch"; ScreenGuiGold.ResetOnSpawn = false
+    local pos = cargarPosicionBoton(ARCHIVO_POS_GOLD, 0.4, 0.7)
+    BotonCuadradoGold = Instance.new("TextButton", ScreenGuiGold); BotonCuadradoGold.Name = "GoldJumpButton"
+    BotonCuadradoGold.Size = UDim2.new(0, BotonSizeGoldActual, 0, BotonSizeGoldActual)
+    BotonCuadradoGold.Position = UDim2.new(pos.ScaleX, pos.OffsetX, pos.ScaleY, pos.OffsetY)
+    BotonCuadradoGold.Text = EnEnfriamientoGold and "..." or "GOLD JUMP"
+    BotonCuadradoGold.TextColor3 = Color3.fromRGB(218, 165, 32)
+    AplicarEstiloShoot(BotonCuadradoGold, 28, Color3.fromRGB(30, 15, 50))
+    ConfigurarArrastre(BotonCuadradoGold, ARCHIVO_POS_GOLD)
+    BotonCuadradoGold.MouseButton1Click:Connect(EjecutarGoldBombJump)
+end
+
+local function CrearBotonFlotanteNormal()
+    if CoreGui:FindFirstChild("KillerHub_NormalClutch") then CoreGui.KillerHub_NormalClutch:Destroy() end
+    ScreenGuiNormal = Instance.new("ScreenGui", CoreGui); ScreenGuiNormal.Name = "KillerHub_NormalClutch"; ScreenGuiNormal.ResetOnSpawn = false
+    local pos = cargarPosicionBoton(ARCHIVO_POS_NORMAL, 0.6, 0.7)
+    BotonCuadradoNormal = Instance.new("TextButton", ScreenGuiNormal); BotonCuadradoNormal.Name = "NormalJumpButton"
+    BotonCuadradoNormal.Size = UDim2.new(0, BotonSizeNormalActual, 0, BotonSizeNormalActual)
+    BotonCuadradoNormal.Position = UDim2.new(pos.ScaleX, pos.OffsetX, pos.ScaleY, pos.OffsetY)
+    BotonCuadradoNormal.Text = EnEnfriamientoNormal and "..." or "FAKE JUMP"
+    BotonCuadradoNormal.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AplicarEstiloShoot(BotonCuadradoNormal, 28, Color3.fromRGB(30, 15, 50))
+    ConfigurarArrastre(BotonCuadradoNormal, ARCHIVO_POS_NORMAL)
+    BotonCuadradoNormal.MouseButton1Click:Connect(EjecutarNormalBombJump)
+end
+
+local function DestruirBotonFlotanteVoid() if ScreenGuiVoid then ScreenGuiVoid:Destroy() ScreenGuiVoid = nil BotonCuadradoVoid = nil end end
+local function DestruirBotonFlotanteGold() if ScreenGuiGold then ScreenGuiGold:Destroy() ScreenGuiGold = nil BotonCuadradoGold = nil end end
+local function DestruirBotonFlotanteNormal() if ScreenGuiNormal then ScreenGuiNormal:Destroy() ScreenGuiNormal = nil BotonCuadradoNormal = nil end end
+
+-- ============================================================================
+-- 🛠️ ASIGNACIÓN DE COMPONENTES USANDO TU NUEVA API COMPATIBLE
+-- ============================================================================
+
+MMVTab:CreateSection("Custom Mod Mechanics")
+
+MMVTab:CreateToggle("FakeBombClutchFlag", "Fake Bomb Clutch (Mod Edition)", function(estado) 
+    FakeClutchActivo = estado
+    if estado then CrearBotonFlotanteVoid() else DestruirBotonFlotanteVoid() end 
 end)
 
-return Killer
+MMVTab:CreateToggle("AutoEquipBombFlag", "Auto Equip Bomb", function(estado) 
+    AutoEquipActivo = estado 
+end)
+
+MMVTab:CreateSlider("BombButtonSize", "Tamaño del Botón de la Bomba", 60, 200, function(valor) 
+    BotonSizeActual = math.floor(valor)
+    if BotonCuadradoVoid and FakeClutchActivo then 
+        BotonCuadradoVoid.Size = UDim2.new(0, BotonSizeActual, 0, BotonSizeActual) 
+    end 
+end)
+
+MMVTab:CreateSection("Gold Mod Mechanics")
+
+MMVTab:CreateToggle("GoldBombClutchFlag", "Gold Bomb Clutch", function(estado) 
+    GoldClutchActivo = estado
+    if estado then CrearBotonFlotanteGold() else DestruirBotonFlotanteGold() end 
+end)
+
+MMVTab:CreateToggle("AutoEquipGoldFlag", "Auto Equip Gold Bomb", function(estado) 
+    AutoEquipGoldActivo = estado 
+end)
+
+MMVTab:CreateSlider("GoldBombButtonSize", "Tamaño del Botón Gold", 60, 200, function(valor) 
+    BotonSizeGoldActual = math.floor(valor)
+    if BotonCuadradoGold and GoldClutchActivo then 
+        BotonCuadradoGold.Size = UDim2.new(0, BotonSizeGoldActual, 0, BotonSizeGoldActual) 
+    end 
+end)
+
+MMVTab:CreateSection("Normal Mod Mechanics")
+
+MMVTab:CreateToggle("NormalBombClutchFlag", "Fake Bomb Clutch (Normal)", function(estado) 
+    NormalClutchActivo = estado
+    if estado then CrearBotonFlotanteNormal() else DestruirBotonFlotanteNormal() end 
+end)
+
+MMVTab:CreateToggle("AutoEquipNormalFlag", "Auto Equip Fake Bomb", function(estado) 
+    AutoEquipNormalActivo = estado 
+end)
+
+MMVTab:CreateSlider("NormalBombButtonSize", "Tamaño del Botón Normal", 60, 200, function(valor) 
+    BotonSizeNormalActual = math.floor(valor)
+    if BotonCuadradoNormal and NormalClutchActivo then 
+        BotonCuadradoNormal.Size = UDim2.new(0, BotonSizeNormalActual, 0, BotonSizeNormalActual) 
+    end 
+end)
+
+return KillerHub
