@@ -6,7 +6,7 @@
 local KillerHub = loadstring(game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub1/refs/heads/main/MM2.lua"))()
 
 -- 2. CREAR PESTAÑA EXCLUSIVA MMV
-local MMVTab = KillerHub:CreateTab("MMV 💣", "rbxassetid://10747373142")
+local MMVTab = KillerHub:CreateTab("Bomb Jump", "rbxassetid://10678594882")
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
