@@ -4,7 +4,7 @@
 --==============================================================================
 
 -- Cargar librería con fallback seguro
-local rawLibrary = game:HttpGet("https://raw.githubusercontent .com/Salayer09/KillerHub1/refs/heads/main/MM2.lua")
+local rawLibrary = game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub1/refs/heads/main/MM2.lua")
 local KillerHub = loadstring(rawLibrary)() or getgenv().KillerHub
 
 if not KillerHub then
