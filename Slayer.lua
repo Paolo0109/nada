@@ -3,7 +3,7 @@
 -- Repo: https://raw.githubusercontent.com/Salayer09/KillerHub1/refs/heads/main/MM2.lua
 --==============================================================================
 
--- Cargar librería con fallback seguro
+-- Cargar librería desde tu repositorio
 local rawLibrary = game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub1/refs/heads/main/MM2.lua")
 local KillerHub = loadstring(rawLibrary)() or getgenv().KillerHub
 
@@ -14,7 +14,6 @@ end
 
 -- Prevenir doble ejecución
 if getgenv().__MM2AdvancedScript_Loaded then
-    KillerHub:NotifyWarn("Alerta", "El script ya se está ejecutando.", 3)
     return
 end
 getgenv().__MM2AdvancedScript_Loaded = true
