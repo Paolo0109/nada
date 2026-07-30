@@ -1,10 +1,10 @@
-
 --==============================================================================
--- 🔪 MM2 ADVANCED PLAYER UTILITIES — KILLER HUB (MAX OPTIMIZED V2.0)
+-- 🔪 MM2 ADVANCED PLAYER UTILITIES — KILLER HUB
+-- Repo: https://raw.githubusercontent.com/Salayer09/KillerHub1/refs/heads/main/MM2.lua
 --==============================================================================
 
 -- Cargar librería con fallback seguro
-local rawLibrary = game:HttpGet("https://raw.githubusercontent.com/Salayer09/KillerHub1/refs/heads/main/MM2.lua")
+local rawLibrary = game:HttpGet("https://raw.githubusercontent .com/Salayer09/KillerHub1/refs/heads/main/MM2.lua")
 local KillerHub = loadstring(rawLibrary)() or getgenv().KillerHub
 
 if not KillerHub then
@@ -32,77 +32,61 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
--- Variables de Estado & Conexiones
+-- Variables de Estado
 local NoclipConnection = nil
 local InvisConnection = nil
 local AntiFlingConnection = nil
-local SpeedGlitchConnection = nil
-local CharacterConnections = {}
-
 local invisParts = {}
-local noclipCache = {}
+local speedGlitchLooping = false
 
 --==============================================================================
 -- CORE UTILITY FUNCTIONS
 --==============================================================================
 
--- Cachear partes para Noclip
-local function UpdateNoclipCache(char)
-    table.clear(noclipCache)
-    if not char then return end
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            table.insert(noclipCache, part)
-        end
-    end
-end
-
--- Speed Glitch Optimizado
-local function ToggleSpeedGlitch(state)
-    if SpeedGlitchConnection then
-        SpeedGlitchConnection:Disconnect()
-        SpeedGlitchConnection = nil
-    end
-
-    if not state then return end
-
-    local wallCheckParams = RaycastParams.new()
-    wallCheckParams.FilterType = Enum.RaycastFilterType.Exclude
-    wallCheckParams.IgnoreWater = true
-
-    SpeedGlitchConnection = RunService.Heartbeat:Connect(function()
-        if not GetFlag("Speed_Glitch", false) then return end
-
-        local char = LocalPlayer.Character
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-
-        if hum and root and hum.Health > 0 then
-            local currentHandState = hum:GetState()
-            local isClimbing = (currentHandState == Enum.HumanoidStateType.Climbing)
-            local isSwimming = (currentHandState == Enum.HumanoidStateType.Swimming)
-
-            if hum.FloorMaterial == Enum.Material.Air and root.AssemblyLinearVelocity.Y > 0 and not isClimbing and not isSwimming then
-                local moveDir = hum.MoveDirection
-                if moveDir.Magnitude > 0 then
-                    wallCheckParams.FilterDescendantsInstances = {char, workspace.CurrentCamera}
-                    local raycastResult = workspace:Raycast(root.Position, moveDir * 2.2, wallCheckParams)
-
-                    if not raycastResult then
-                        local power = GetFlag("Speed_Glitch_Intensity", 50)
-                        root.AssemblyLinearVelocity = Vector3.new(
-                            moveDir.X * power,
-                            root.AssemblyLinearVelocity.Y,
-                            moveDir.Z * power
-                        )
+-- Speed Glitch Optimizado por Raycast
+local function startSpeedGlitchLoop()
+    if speedGlitchLooping then return end
+    speedGlitchLooping = true
+    
+    task.spawn(function()
+        local wallCheckParams = RaycastParams.new()
+        wallCheckParams.FilterType = Enum.RaycastFilterType.Exclude
+        wallCheckParams.IgnoreWater = true
+        
+        while GetFlag("Speed_Glitch", false) do
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            
+            if hum and root and hum.Health > 0 then
+                local currentHandState = hum:GetState()
+                local isClimbing = (currentHandState == Enum.HumanoidStateType.Climbing)
+                local isSwimming = (currentHandState == Enum.HumanoidStateType.Swimming)
+                
+                if hum.FloorMaterial == Enum.Material.Air and root.AssemblyLinearVelocity.Y > 0 and not isClimbing and not isSwimming then
+                    local moveDir = hum.MoveDirection
+                    if moveDir.Magnitude > 0 then
+                        wallCheckParams.FilterDescendantsInstances = {char, workspace.CurrentCamera}
+                        local raycastResult = workspace:Raycast(root.Position, moveDir * 2.2, wallCheckParams)
+                        
+                        if not raycastResult then
+                            local power = GetFlag("Speed_Glitch_Intensity", 50)
+                            root.AssemblyLinearVelocity = Vector3.new(
+                                moveDir.X * power,
+                                root.AssemblyLinearVelocity.Y,
+                                moveDir.Z * power
+                            )
+                        end
                     end
                 end
             end
+            RunService.Heartbeat:Wait()
         end
+        speedGlitchLooping = false
     end)
 end
 
--- Método FE Invisibility Fluidas (Sin RenderStepped:Wait inside Heartbeat)
+-- Método FE Invisibility con Transparencia 0.5 y desincronización
 local function ToggleInvisibilityFE(state)
     if InvisConnection then
         InvisConnection:Disconnect()
@@ -111,7 +95,7 @@ local function ToggleInvisibilityFE(state)
 
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
-
+    
     if not state then
         for part, origTrans in pairs(invisParts) do
             if part and part.Parent then
@@ -149,20 +133,19 @@ local function ToggleInvisibilityFE(state)
             rootPart.CFrame = hidden
             humanoid.CameraOffset = hidden:ToObjectSpace(CFrame.new(cf.Position)).Position
 
-            -- Sincronización limpia en el ciclo de física
-            task.defer(function()
-                if rootPart and rootPart.Parent then
-                    rootPart.CFrame = cf
-                end
-                if humanoid and humanoid.Parent then
-                    humanoid.CameraOffset = camOffset
-                end
-            end)
+            RunService.RenderStepped:Wait()
+
+            if rootPart and rootPart.Parent then
+                rootPart.CFrame = cf
+            end
+            if humanoid and humanoid.Parent then
+                humanoid.CameraOffset = camOffset
+            end
         end
     end)
 end
 
--- Módulo Anti Fling Ultra-Optimizado
+-- Módulo Anti Fling
 local function ToggleAntiFling(state)
     if AntiFlingConnection then
         AntiFlingConnection:Disconnect()
@@ -176,15 +159,30 @@ local function ToggleAntiFling(state)
 
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
-                for _, part in ipairs(player.Character:GetChildren()) do
+                for _, part in ipairs(player.Character:GetDescendants()) do
                     if part:IsA("BasePart") then
                         if part.CanCollide then
                             part.CanCollide = false
                         end
-                        if part.AssemblyLinearVelocity.Magnitude > 40 or part.AssemblyAngularVelocity.Magnitude > 40 then
+                        if part.AssemblyLinearVelocity.Magnitude > 50 or part.AssemblyAngularVelocity.Magnitude > 50 then
                             part.AssemblyLinearVelocity = Vector3.zero
                             part.AssemblyAngularVelocity = Vector3.zero
                         end
+                    end
+                end
+            end
+        end
+
+        for _, obj in ipairs(workspace:GetChildren()) do
+            if obj:IsA("Accessory") then
+                local handle = obj:FindFirstChildWhichIsA("BasePart")
+                if handle then
+                    if handle.CanCollide then
+                        handle.CanCollide = false
+                    end
+                    if handle.AssemblyLinearVelocity.Magnitude > 50 then
+                        handle.AssemblyLinearVelocity = Vector3.zero
+                        handle.AssemblyAngularVelocity = Vector3.zero
                     end
                 end
             end
@@ -197,22 +195,10 @@ end
 --==============================================================================
 
 local function SetupCharacter(char)
-    -- Limpiar conexiones previas del personaje
-    for _, conn in ipairs(CharacterConnections) do
-        conn:Disconnect()
-    end
-    table.clear(CharacterConnections)
-
+    task.wait(0.3)
     local humanoid = char:WaitForChild("Humanoid", 5)
     if not humanoid then return end
-
-    UpdateNoclipCache(char)
-
-    -- Detectar cuando se añaden accesorios/herramientas para mantener el caché de Noclip
-    table.insert(CharacterConnections, char.ChildAdded:Connect(function()
-        task.defer(UpdateNoclipCache, char)
-    end))
-
+    
     if GetFlag("Invisible_FE", false) then
         ToggleInvisibilityFE(true)
     end
@@ -220,17 +206,17 @@ local function SetupCharacter(char)
     if GetFlag("Anti_Fling", false) then
         ToggleAntiFling(true)
     end
-
-    table.insert(CharacterConnections, humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+    
+    humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
         if GetFlag("WalkSpeed_Toggle", false) then
             local targetSpeed = GetFlag("WalkSpeed_Value", 16)
             if humanoid.WalkSpeed ~= targetSpeed then
                 humanoid.WalkSpeed = targetSpeed
             end
         end
-    end))
-
-    table.insert(CharacterConnections, humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
+    end)
+    
+    humanoid:GetPropertyChangedSignal("JumpPower"):Connect(function()
         if GetFlag("JumpPower_Toggle", false) then
             humanoid.UseJumpPower = true
             local targetJump = GetFlag("JumpPower_Value", 50)
@@ -238,8 +224,8 @@ local function SetupCharacter(char)
                 humanoid.JumpPower = targetJump
             end
         end
-    end))
-
+    end)
+    
     if GetFlag("WalkSpeed_Toggle", false) then humanoid.WalkSpeed = GetFlag("WalkSpeed_Value", 16) end
     if GetFlag("JumpPower_Toggle", false) then 
         humanoid.UseJumpPower = true 
@@ -260,7 +246,7 @@ local TabPlayer = KillerHub:CreateTab("Player", "Movement")
 TabPlayer:CreateSection("Speed Glitch")
 
 TabPlayer:CreateToggle("Speed_Glitch", "Speed Glitch", function(state)
-    ToggleSpeedGlitch(state)
+    if state then startSpeedGlitchLoop() end
 end)
 
 TabPlayer:CreateSlider("Speed_Glitch_Intensity", "Speed Glitch Intensity", 1, 200, function(value) end)
@@ -317,15 +303,16 @@ end)
 
 TabPlayer:CreateToggle("Infinite_Jump", "Infinite Jump", function(state) end)
 
--- Noclip Limpio y Ultra-Rápido
+-- Noclip Limpio
 TabPlayer:CreateToggle("Noclip", "Noclip", function(state)
     if state then
-        if NoclipConnection then NoclipConnection:Disconnect() end
         NoclipConnection = RunService.Stepped:Connect(function()
-            for i = 1, #noclipCache do
-                local part = noclipCache[i]
-                if part and part.Parent then
-                    part.CanCollide = false
+            local char = LocalPlayer.Character
+            if char and char:IsDescendantOf(workspace) then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
                 end
             end
         end)
@@ -346,8 +333,5 @@ end)
 TabPlayer:CreateToggle("Anti_Fling", "Anti Fling", function(state)
     ToggleAntiFling(state)
 end)
-
--- Notificación de Carga
-KillerHub:NotifySuccess("MM2 Script", "Script Loaded successfully.", 4)
 
 return KillerHub
